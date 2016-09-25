@@ -31,19 +31,18 @@ type Version struct {
 	Version            string
 }
 
-// CommandResults respresents the data returned from the Set Top Box for a
+// CommandResponse respresents the data returned from the Set Top Box for a
 // ProcessCommand call.
-type CommandResults struct {
-	Command bool            `json:"command"`
-	Param   bool            `json:"param"`
-	Prefix  bool            `json:"prefix"`
-	Return  CommandResponse `json:"return"`
-	Status  statusResponse  `json:"status"`
+type CommandResponse struct {
+	Command bool          `json:"command"`
+	Param   bool          `json:"param"`
+	Prefix  bool          `json:"prefix"`
+	Return  CommandReturn `json:"return"`
 }
 
-// CommandResponse represents the response portion of the return value of
+// CommandReturn represents the return portion of the return value of
 // ProcessCommand
-type CommandResponse struct {
+type CommandReturn struct {
 	Data     string `json:"data"`
 	Response int    `json:"response"`
 	Value    int    `json:"value"`
@@ -51,21 +50,23 @@ type CommandResponse struct {
 
 // ProgramStatusResponse represents the data returned from
 type ProgramStatusResponse struct {
-	CallSign    string `json:"callsign"`
-	Date        string `json:"date"`
-	Duration    int    `json:"duration"`
-	IsOffAir    bool   `json:"isOffAir"`
-	IsPClocked  int    `json:"isPclocked"`
-	IsPPV       bool   `json:"isPpv"`
-	IsRecording bool   `json:"IsRecording"`
-	IsVOD       bool   `json:"IsVod"`
-	Major       int    `json:"major"`
-	Minor       int    `json:"minor"`
-	ProgramID   string `json:"programId"`
-	Rating      string `json:"rating"`
-	StartTime   int64  `json:"startTime"`
-	StationID   int64  `json:"stationId"`
-	Title       string `json:"title"`
+	CallSign     string `json:"callsign"`
+	Date         string `json:"date"`
+	Duration     int    `json:"duration"`
+	EpisodeTitle string `json:"episodeTitle"`
+	IsOffAir     bool   `json:"isOffAir"`
+	IsPClocked   int    `json:"isPclocked"`
+	IsPPV        bool   `json:"isPpv"`
+	IsRecording  bool   `json:"isRecording"`
+	IsVOD        bool   `json:"isVod"`
+	Major        int    `json:"major"`
+	Minor        int    `json:"minor"`
+	Offset       int    `json:"offset"`
+	ProgramID    string `json:"programId"`
+	Rating       string `json:"rating"`
+	StartTime    int64  `json:"startTime"`
+	StationID    int64  `json:"stationId"`
+	Title        string `json:"title"`
 }
 
 type statusResponse struct {
@@ -100,6 +101,97 @@ type modeResponse struct {
 	Status statusResponse `json:"status"`
 }
 
+type processKeyResponse struct {
+	Hold   string         `json:"hold"`
+	Key    string         `json:"key"`
+	Status statusResponse `json:"status"`
+}
+
+type processCommandResponse struct {
+	Command bool           `json:"command"`
+	Param   bool           `json:"param"`
+	Prefix  bool           `json:"prefix"`
+	Return  CommandReturn  `json:"return"`
+	Status  statusResponse `json:"status"`
+}
+
+// Supported keys
+const (
+	KeyPower    = "power"
+	KeyPowerOn  = "poweron"
+	KeyPowerOff = "poweroff"
+	KeyFormat   = "format"
+	KeyPause    = "pause"
+	KeyRewind   = "rew"
+	KeyReplay   = "replay"
+	KeyStop     = "stop"
+	KeyAdvance  = "advance"
+	KeyFFwd     = "ffwd"
+	KeyRecord   = "record"
+	KeyPlay     = "play"
+	KeyGuide    = "guide"
+	KeyActive   = "active"
+	KeyList     = "list"
+	KeyExit     = "exit"
+	KeyBack     = "back"
+	KeyMenu     = "menu"
+	KeyInfo     = "info"
+	KeyUp       = "up"
+	KeyDown     = "down"
+	KeyLeft     = "left"
+	KeyRight    = "right"
+	KeySelect   = "select"
+	KeyRed      = "red"
+	KeyGreen    = "green"
+	KeyYellow   = "yellow"
+	KeyBlue     = "blue"
+	KeyChanup   = "chanup"
+	KeyChandown = "chandown"
+	KeyPrev     = "prev"
+	Key0        = "0"
+	Key1        = "1"
+	Key2        = "2"
+	Key3        = "3"
+	Key4        = "4"
+	Key5        = "5"
+	Key6        = "6"
+	Key7        = "7"
+	Key8        = "8"
+	Key9        = "9"
+	KeyDash     = "dash"
+	KeyEnter    = "enter"
+)
+
+// Supported key hold types
+const (
+	HoldPress           = "keyDown"
+	HoldRelease         = "keyUp"
+	HoldPressAndRelease = "keyPress"
+)
+
+// Supported commands
+const (
+	CommandStandby             = "FA81"
+	CommandActive              = "FA82"
+	CommandGetPrimaryStatus    = "FA83"
+	CommandGetCommandVersion   = "FA84"
+	CommandGetCurrentChannel   = "FA87"
+	CommandGetSignalQuality    = "FA90"
+	CommandGetCurrentTime      = "FA91"
+	CommandGetUserCommand      = "FA92"
+	CommandGetUserEntry        = "FA93"
+	CommandDisableUserEntry    = "FA94"
+	CommandGetReturnValue      = "FA95"
+	CommandReboot              = "FA96"
+	CommandSendUserCommand     = "FAA5"
+	CommandOpenUserChannel     = "FAA6"
+	CommandGetTuner            = "FA9A"
+	CommandGetPrimaryStatusMT  = "FA8A"
+	CommandGetCurrentChannelMT = "FA8B"
+	CommandGetSignalQualityMT  = "FA9D"
+	CommandOpenUserChannelMT   = "FA9F"
+)
+
 // NewSetTopBox initialized a new SetTopBox struct with the supplied ip address
 // and default port.
 func NewSetTopBox(ip string) *SetTopBox {
@@ -131,21 +223,12 @@ func (stb *SetTopBox) GetLocations() ([]Location, error) {
 }
 
 // GetSerialNum calls /info/getSerialNum and returns the STB Serial Number
-func (stb *SetTopBox) GetSerialNum() (string, error) {
+func (stb *SetTopBox) GetSerialNum(clientAddr string) (string, error) {
 	var serialNumResponse getSerialNumResponse
-	_, err := stb.request("/info/getSerialNum", nil, &serialNumResponse)
-	if err != nil {
-		return "", err
+	params := map[string]string{}
+	if len(clientAddr) != 0 {
+		params["clientAddr"] = clientAddr
 	}
-
-	return serialNumResponse.SerialNum, nil
-}
-
-// GetSerialNumForClient calls /info/getSerialNum for a specific STB and returns
-// the STB Serial Number
-func (stb *SetTopBox) GetSerialNumForClient(clientAddr int) (string, error) {
-	var serialNumResponse getSerialNumResponse
-	params := map[string]string{"clientAddr": strconv.FormatInt(int64(clientAddr), 10)}
 	_, err := stb.request("/info/getSerialNum", params, &serialNumResponse)
 	if err != nil {
 		return "", err
@@ -176,20 +259,12 @@ func (stb *SetTopBox) GetVersion() (Version, error) {
 }
 
 // GetMode calls /info/mode and returns the mode the STB is operating in.
-func (stb *SetTopBox) GetMode() (int, error) {
+func (stb *SetTopBox) GetMode(clientAddr string) (int, error) {
 	var modeResponse modeResponse
-	_, err := stb.request("/info/mode", nil, &modeResponse)
-	if err != nil {
-		return 0, err
+	params := map[string]string{}
+	if len(clientAddr) != 0 {
+		params["clientAddr"] = clientAddr
 	}
-
-	return modeResponse.Mode, nil
-}
-
-// GetModeForClient calls /info/mode and returns the mode the STB is operating in.
-func (stb *SetTopBox) GetModeForClient(clientAddr int) (int, error) {
-	var modeResponse modeResponse
-	params := map[string]string{"clientAddr": strconv.FormatInt(int64(clientAddr), 10)}
 	_, err := stb.request("/info/mode", params, &modeResponse)
 	if err != nil {
 		return 0, err
@@ -198,89 +273,78 @@ func (stb *SetTopBox) GetModeForClient(clientAddr int) (int, error) {
 	return modeResponse.Mode, nil
 }
 
-// ProcessKey sends a remote key press to the STB.  The hold parameter can be
-// used to specify 'keyPress' (default), 'keyDown', or 'keyUp'  Remote keys include:
-// format, power, rew, pause, play, stop, ffwd, replay, advance, record, guide, active, list, exit, up, down, select, left, right, back, menu, info, red, green, yellow, blue, chanup, chandown, prev, 1, 2, 3, 4, 5, 6, 7, 8, 9, dash, 0, enter
-func (stb *SetTopBox) ProcessKey(key string, hold string) error {
-	var status statusResponse
+// ProcessKey sends a remote key press to the STB.
+func (stb *SetTopBox) ProcessKey(key string, hold string, clientAddr string) error {
+	var processKeyResponse processKeyResponse
 	params := map[string]string{
-		"key":  key,
-		"hold": hold,
+		"key": key,
 	}
-	_, err := stb.request("/remote/processKey", params, &status)
-	return err
-}
-
-// ProcessKeyForClient sends a remote key press to the STB.  The hold parameter can be
-// used to specify 'keyPress' (default), 'keyDown', or 'keyUp'  Remote keys include:
-// format, power, rew, pause, play, stop, ffwd, replay, advance, record, guide, active, list, exit, up, down, select, left, right, back, menu, info, red, green, yellow, blue, chanup, chandown, prev, 1, 2, 3, 4, 5, 6, 7, 8, 9, dash, 0, enter
-func (stb *SetTopBox) ProcessKeyForClient(key string, hold string, clientAddr int) error {
-	var status statusResponse
-	params := map[string]string{
-		"clientAddr": strconv.FormatInt(int64(clientAddr), 10),
-		"key":        key,
-		"hold":       hold,
+	if len(hold) != 0 {
+		params["hold"] = hold
 	}
-	_, err := stb.request("/remote/processKey", params, &status)
+	if len(clientAddr) != 0 {
+		params["clientAddr"] = clientAddr
+	}
+	_, err := stb.request("/remote/processKey", params, &processKeyResponse)
 	return err
 }
 
 // ProcessCommand sends a serial command (hex value) to the Set Top Box.
-// Supported commands may include:
-// 'FA81' Standby
-// 'FA82' Active
-// 'FA83' GetPrimaryStatus
-// 'FA84' GetCommandVersion
-// 'FA87' GetCurrentChannel
-// 'FA90' GetSignalQuality
-// 'FA91' GetCurrentTime
-// 'FA92' GetUserCommand
-// 'FA93' EnableUserEntry
-// 'FA94' DisableUserEntry
-// 'FA95' GetReturnValue
-// 'FA96' Reboot
-// 'FAA5' SendUserCommand
-// 'FAA6' OpenUserChannel
-// 'FA9A' GetTuner
-// 'FA8A' GetPrimaryStatusMT
-// 'FA8B' GetCurrentChannelMT
-// 'FA9D' GetSignalQualityMT
-// 'FA9F' OpenUserChannelMT
-func (stb *SetTopBox) ProcessCommand(cmd string) (interface{}, error) {
-	var response interface{}
+func (stb *SetTopBox) ProcessCommand(cmd string) (CommandResponse, error) {
+	var response processCommandResponse
+	var commandResponse CommandResponse
 	params := map[string]string{"cmd": cmd}
 	_, err := stb.request("/serial/processCommand", params, &response)
-	return response, err
+	if err != nil {
+		return commandResponse, err
+	}
+
+	commandResponse = CommandResponse{
+		response.Command,
+		response.Param,
+		response.Prefix,
+		response.Return,
+	}
+
+	return commandResponse, err
 }
 
 // GetProgInfo returns information about the program on the specifed channel.
-func (stb *SetTopBox) GetProgInfo(channel int) (ProgramStatusResponse, error) {
-	var response ProgramStatusResponse
-	params := map[string]string{"major": strconv.FormatInt(int64(channel), 10)}
-	_, err := stb.request("/tv/getProgInfo", params, &response)
-	fmt.Println(response)
-	return response, err
-}
-
-// GetProgInfoForTime returns information about the program on the specifed channel.
-func (stb *SetTopBox) GetProgInfoForTime(channelMajor int, channelMinor int, time int64) (ProgramStatusResponse, error) {
+func (stb *SetTopBox) GetProgInfo(channelMajor int, channelMinor int, time int64, clientAddr string) (ProgramStatusResponse, error) {
 	var response ProgramStatusResponse
 	params := map[string]string{
 		"major": strconv.FormatInt(int64(channelMajor), 10),
 		"minor": strconv.FormatInt(int64(channelMinor), 10),
-		"time":  strconv.FormatInt(time, 10),
+	}
+	if time != 0 {
+		params["time"] = strconv.FormatInt(time, 10)
+	}
+	if len(clientAddr) != 0 {
+		params["clientAddr"] = clientAddr
 	}
 	_, err := stb.request("/tv/getProgInfo", params, &response)
-	fmt.Println(response)
+	return response, err
+}
+
+// GetTuned returns information about the program a STB is tuned to.
+func (stb *SetTopBox) GetTuned(clientAddr string) (ProgramStatusResponse, error) {
+	var response ProgramStatusResponse
+	params := map[string]string{}
+	if len(clientAddr) != 0 {
+		params["clientAddr"] = clientAddr
+	}
+	_, err := stb.request("/tv/getTuned", params, &response)
 	return response, err
 }
 
 // TuneToChannel tunes the SetTopBox to a specific channel.
-func (stb *SetTopBox) TuneToChannel(channel int) error {
+func (stb *SetTopBox) TuneToChannel(channel int, clientAddr string) error {
 	var response interface{}
 	params := map[string]string{"major": strconv.FormatInt(int64(channel), 10)}
+	if len(clientAddr) != 0 {
+		params["clientAddr"] = clientAddr
+	}
 	_, err := stb.request("/tv/tune", params, &response)
-	fmt.Println(response)
 	return err
 }
 

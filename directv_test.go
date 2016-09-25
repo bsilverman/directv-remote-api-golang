@@ -24,7 +24,7 @@ func TestSTBIsConnected(t *testing.T) {
 
 func TestSTBGetSerialNum(t *testing.T) {
 	stb := &SetTopBox{ip, port}
-	num, err := stb.GetSerialNum()
+	num, err := stb.GetSerialNum("")
 	if err != nil {
 		t.Error(err)
 	}
@@ -35,7 +35,7 @@ func TestSTBGetSerialNum(t *testing.T) {
 
 func TestSTBGetSerialNumForClient(t *testing.T) {
 	stb := &SetTopBox{ip, port}
-	num, err := stb.GetSerialNumForClient(0)
+	num, err := stb.GetSerialNum("0")
 	if err != nil {
 		t.Error(err)
 	}
@@ -44,7 +44,7 @@ func TestSTBGetSerialNumForClient(t *testing.T) {
 	}
 
 	// Should Error
-	num, err = stb.GetSerialNumForClient(1)
+	num, err = stb.GetSerialNum("1")
 	if err == nil {
 		t.Error("Expected error for ClientAddr 1 but got num", num)
 	}
@@ -79,7 +79,7 @@ func TestSTBGetVersion(t *testing.T) {
 
 func TestSTBGetModeForClient(t *testing.T) {
 	stb := &SetTopBox{ip, port}
-	num, err := stb.GetModeForClient(0)
+	num, err := stb.GetMode("0")
 	if err != nil {
 		t.Error(err)
 	}
@@ -88,7 +88,7 @@ func TestSTBGetModeForClient(t *testing.T) {
 	}
 
 	// Should Error
-	num, err = stb.GetModeForClient(1)
+	num, err = stb.GetMode("1")
 	if err == nil {
 		t.Error("Expected error for ClientAddr 1 but got num", num)
 	}
@@ -96,7 +96,7 @@ func TestSTBGetModeForClient(t *testing.T) {
 
 func TestSTBGetMode(t *testing.T) {
 	stb := &SetTopBox{ip, port}
-	num, err := stb.GetMode()
+	num, err := stb.GetMode("")
 	if err != nil {
 		t.Error(err)
 	}
