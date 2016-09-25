@@ -50,23 +50,24 @@ type CommandReturn struct {
 
 // ProgramStatusResponse represents the data returned from
 type ProgramStatusResponse struct {
-	CallSign     string `json:"callsign"`
-	Date         string `json:"date"`
-	Duration     int    `json:"duration"`
-	EpisodeTitle string `json:"episodeTitle"`
-	IsOffAir     bool   `json:"isOffAir"`
-	IsPClocked   int    `json:"isPclocked"`
-	IsPPV        bool   `json:"isPpv"`
-	IsRecording  bool   `json:"isRecording"`
-	IsVOD        bool   `json:"isVod"`
-	Major        int    `json:"major"`
-	Minor        int    `json:"minor"`
-	Offset       int    `json:"offset"`
-	ProgramID    string `json:"programId"`
-	Rating       string `json:"rating"`
-	StartTime    int64  `json:"startTime"`
-	StationID    int64  `json:"stationId"`
-	Title        string `json:"title"`
+	CallSign     string         `json:"callsign"`
+	Date         string         `json:"date"`
+	Duration     int            `json:"duration"`
+	EpisodeTitle string         `json:"episodeTitle"`
+	IsOffAir     bool           `json:"isOffAir"`
+	IsPClocked   int            `json:"isPclocked"`
+	IsPPV        bool           `json:"isPpv"`
+	IsRecording  bool           `json:"isRecording"`
+	IsVOD        bool           `json:"isVod"`
+	Major        int            `json:"major"`
+	Minor        int            `json:"minor"`
+	Offset       int            `json:"offset"`
+	ProgramID    string         `json:"programId"`
+	Rating       string         `json:"rating"`
+	StartTime    int64          `json:"startTime"`
+	StationID    int64          `json:"stationId"`
+	Status       statusResponse `json:"status"`
+	Title        string         `json:"title"`
 }
 
 type statusResponse struct {
@@ -88,12 +89,12 @@ type getSerialNumResponse struct {
 }
 
 type getVersionResponse struct {
-	AccessCardID       string `json:"accessCardId"`
-	ReceiverID         string `json:"receiverId"`
-	statusResponse     `json:"status"`
-	STBSoftwareVersion string `json:"stbSoftwareVersion"`
-	SystemTime         int64  `json:"systemTime"`
-	Version            string `json:"version"`
+	AccessCardID       string         `json:"accessCardId"`
+	ReceiverID         string         `json:"receiverId"`
+	Status             statusResponse `json:"status"`
+	STBSoftwareVersion string         `json:"stbSoftwareVersion"`
+	SystemTime         int64          `json:"systemTime"`
+	Version            string         `json:"version"`
 }
 
 type modeResponse struct {
@@ -113,6 +114,10 @@ type processCommandResponse struct {
 	Prefix  bool           `json:"prefix"`
 	Return  CommandReturn  `json:"return"`
 	Status  statusResponse `json:"status"`
+}
+
+type tuneResponse struct {
+	Status statusResponse `json:"status"`
 }
 
 // Supported keys
@@ -216,6 +221,9 @@ func (stb *SetTopBox) GetLocations() ([]Location, error) {
 	var locationsRes getLocationsResponse
 	_, err := stb.request("/info/getLocations", nil, &locationsRes)
 	if err != nil {
+		if locationsRes.Status.Message != "" {
+			err = errors.New(locationsRes.Status.Message)
+		}
 		return nil, err
 	}
 
@@ -231,6 +239,9 @@ func (stb *SetTopBox) GetSerialNum(clientAddr string) (string, error) {
 	}
 	_, err := stb.request("/info/getSerialNum", params, &serialNumResponse)
 	if err != nil {
+		if serialNumResponse.Status.Message != "" {
+			err = errors.New(serialNumResponse.Status.Message)
+		}
 		return "", err
 	}
 
@@ -243,7 +254,9 @@ func (stb *SetTopBox) GetVersion() (Version, error) {
 	var version Version
 	_, err := stb.request("/info/getVersion", nil, &versionResponse)
 	if err != nil {
-
+		if versionResponse.Status.Message != "" {
+			err = errors.New(versionResponse.Status.Message)
+		}
 		return version, err
 	}
 
@@ -267,6 +280,9 @@ func (stb *SetTopBox) GetMode(clientAddr string) (int, error) {
 	}
 	_, err := stb.request("/info/mode", params, &modeResponse)
 	if err != nil {
+		if modeResponse.Status.Message != "" {
+			err = errors.New(modeResponse.Status.Message)
+		}
 		return 0, err
 	}
 
@@ -286,7 +302,14 @@ func (stb *SetTopBox) ProcessKey(key string, hold string, clientAddr string) err
 		params["clientAddr"] = clientAddr
 	}
 	_, err := stb.request("/remote/processKey", params, &processKeyResponse)
-	return err
+	if err != nil {
+		if processKeyResponse.Status.Message != "" {
+			err = errors.New(processKeyResponse.Status.Message)
+		}
+		return err
+	}
+
+	return nil
 }
 
 // ProcessCommand sends a serial command (hex value) to the Set Top Box.
@@ -296,6 +319,9 @@ func (stb *SetTopBox) ProcessCommand(cmd string) (CommandResponse, error) {
 	params := map[string]string{"cmd": cmd}
 	_, err := stb.request("/serial/processCommand", params, &response)
 	if err != nil {
+		if response.Status.Message != "" {
+			err = errors.New(response.Status.Message)
+		}
 		return commandResponse, err
 	}
 
@@ -306,7 +332,7 @@ func (stb *SetTopBox) ProcessCommand(cmd string) (CommandResponse, error) {
 		response.Return,
 	}
 
-	return commandResponse, err
+	return commandResponse, nil
 }
 
 // GetProgInfo returns information about the program on the specifed channel.
@@ -323,7 +349,14 @@ func (stb *SetTopBox) GetProgInfo(channelMajor int, channelMinor int, time int64
 		params["clientAddr"] = clientAddr
 	}
 	_, err := stb.request("/tv/getProgInfo", params, &response)
-	return response, err
+	if err != nil {
+		if response.Status.Message != "" {
+			err = errors.New(response.Status.Message)
+		}
+		return response, err
+	}
+
+	return response, nil
 }
 
 // GetTuned returns information about the program a STB is tuned to.
@@ -334,18 +367,32 @@ func (stb *SetTopBox) GetTuned(clientAddr string) (ProgramStatusResponse, error)
 		params["clientAddr"] = clientAddr
 	}
 	_, err := stb.request("/tv/getTuned", params, &response)
-	return response, err
+	if err != nil {
+		if response.Status.Message != "" {
+			err = errors.New(response.Status.Message)
+		}
+		return response, err
+	}
+
+	return response, nil
 }
 
 // TuneToChannel tunes the SetTopBox to a specific channel.
-func (stb *SetTopBox) TuneToChannel(channel int, clientAddr string) error {
-	var response interface{}
-	params := map[string]string{"major": strconv.FormatInt(int64(channel), 10)}
+func (stb *SetTopBox) TuneToChannel(channel string, clientAddr string) error {
+	var response tuneResponse
+	params := map[string]string{"major": channel}
 	if len(clientAddr) != 0 {
 		params["clientAddr"] = clientAddr
 	}
 	_, err := stb.request("/tv/tune", params, &response)
-	return err
+	if err != nil {
+		if response.Status.Message != "" {
+			err = errors.New(response.Status.Message)
+		}
+		return err
+	}
+
+	return nil
 }
 
 func (stb *SetTopBox) request(uri string, params map[string]string, targetStruct interface{}) (*http.Response, error) {
@@ -370,12 +417,12 @@ func (stb *SetTopBox) request(uri string, params map[string]string, targetStruct
 	}
 
 	if res.StatusCode != 200 {
-		return res, errors.New("Expected Status Code 200, got " + strconv.FormatInt(int64(res.StatusCode), 10))
+		err = errors.New("Expected Status Code 200, got " + strconv.FormatInt(int64(res.StatusCode), 10))
 	}
 
 	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
-	err = json.Unmarshal(body, targetStruct)
+	body, _ := ioutil.ReadAll(res.Body)
+	json.Unmarshal(body, targetStruct)
 
 	return res, err
 }
