@@ -336,11 +336,13 @@ func (stb *SetTopBox) ProcessCommand(cmd string) (CommandResponse, error) {
 }
 
 // GetProgInfo returns information about the program on the specifed channel.
-func (stb *SetTopBox) GetProgInfo(channelMajor int, channelMinor int, time int64, clientAddr string) (ProgramStatusResponse, error) {
+func (stb *SetTopBox) GetProgInfo(channelMajor string, channelMinor string, time int64, clientAddr string) (ProgramStatusResponse, error) {
 	var response ProgramStatusResponse
 	params := map[string]string{
-		"major": strconv.FormatInt(int64(channelMajor), 10),
-		"minor": strconv.FormatInt(int64(channelMinor), 10),
+		"major": channelMajor,
+	}
+	if len(channelMinor) != 0 {
+		params["minor"] = channelMinor
 	}
 	if time != 0 {
 		params["time"] = strconv.FormatInt(time, 10)
